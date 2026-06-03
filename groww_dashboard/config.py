@@ -7,11 +7,13 @@ from dotenv import load_dotenv
 class GrowwConfig:
     api_key: str
     api_secret: str
+    totp_secret: str
 
     @classmethod
     def from_env(cls) -> "GrowwConfig":
         load_dotenv()
         return cls(
             api_key=os.environ["GROWW_API_KEY"],
-            api_secret=os.environ["GROWW_API_SECRET"],
+            api_secret=os.environ.get("GROWW_API_SECRET", ""),
+            totp_secret=os.environ.get("GROWW_TOTP_SECRET", ""),
         )
