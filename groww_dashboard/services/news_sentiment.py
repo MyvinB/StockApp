@@ -4,7 +4,14 @@ import logging
 from dataclasses import dataclass
 from xml.etree import ElementTree
 
+import nltk
 import requests
+
+try:
+    nltk.data.find('sentiment/vader_lexicon.zip')
+except LookupError:
+    nltk.download('vader_lexicon', quiet=True)
+
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 logger = logging.getLogger(__name__)
