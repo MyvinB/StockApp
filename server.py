@@ -73,6 +73,12 @@ th{text-align:left;padding:12px 8px;border-bottom:1px solid #333;color:#888;font
 td{padding:10px 8px;border-bottom:1px solid #1f1f1f}
 tr:hover{background:#1f1f1f}
 .badge{padding:3px 8px;border-radius:4px;font-size:0.7rem;font-weight:600}
+.search-box{position:relative}
+.search-box input{width:260px;padding:8px 12px;border-radius:6px;border:1px solid #333;background:#111;color:#e0e0e0;font-size:0.85rem;outline:none}
+.search-box input:focus{border-color:#2563eb}
+.search-results{position:absolute;top:100%;right:0;width:300px;background:#1a1a1a;border:1px solid #333;border-radius:8px;max-height:300px;overflow-y:auto;z-index:100;display:none;margin-top:4px}
+.search-results a{display:block;padding:10px 16px;color:#e0e0e0;text-decoration:none;border-bottom:1px solid #262626}
+.search-results a:hover{background:#262626}
 .badge-gold{background:#854d0e;color:#fbbf24}
 .badge-rsi{background:#1e3a5f;color:#60a5fa}
 .empty{text-align:center;padding:40px;color:#666}
@@ -84,7 +90,37 @@ tr:hover{background:#1f1f1f}
 <body>
 <div class="header">
 <div><h1>📊 Stock Dashboard</h1><p class="subtitle">Groww Portfolio + Buy Signals Scanner</p></div>
-</div>"""
+<div class="search-box">
+<input type="text" id="stock-search" placeholder="Search stock..." autocomplete="off" aria-label="Search stocks">
+<div class="search-results" id="search-results"></div>
+</div>
+</div>
+<script>
+(function(){
+const input=document.getElementById('stock-search'),results=document.getElementById('search-results');
+let timer;
+input.addEventListener('input',function(){
+  clearTimeout(timer);
+  const q=this.value.trim();
+  if(q.length<2){results.style.display='none';return;}
+  timer=setTimeout(()=>{
+    fetch('/api/search?q='+encodeURIComponent(q))
+    .then(r=>r.json()).then(data=>{
+      if(!data.results.length){results.innerHTML='<a href="#">No results</a>';results.style.display='block';return;}
+      results.innerHTML=data.results.map(s=>'<a href="/stock/'+s.symbol+'"><strong>'+s.symbol+'</strong> — '+s.name+'</a>').join('');
+      results.style.display='block';
+    });
+  },300);
+});
+input.addEventListener('keydown',function(e){
+  if(e.key==='Enter'){
+    const q=this.value.trim().toUpperCase();
+    if(q)window.location.href='/stock/'+q;
+  }
+});
+document.addEventListener('click',function(e){if(!e.target.closest('.search-box'))results.style.display='none';});
+})();
+</script>"""
 
 HTML_FOOT = "</body></html>"
 
@@ -393,3 +429,43 @@ def debug():
 def api_signals():
     signals = scanner.scan()
     return {"signals": [s.__dict__ for s in signals]}
+
+
+@app.get("/api/search")
+def api_search(q: str = ""):
+    """Search NSE stocks by symbol or name."""
+    import yfinance as yf
+
+    q = q.strip().upper()
+    if len(q) < 2:
+        return {"results": []}
+
+    # Try direct symbol match first
+    results = []
+    candidates = [q, q.replace(" ", "")]
+
+    for sym in candidates:
+        ticker = yf.Ticker(f"{sym}.NS")
+        try:
+            info = ticker.info
+            if info.get("symbol") or info.get("shortName"):
+                results.append({
+                    "symbol": sym,
+                    "name": info.get("shortName", info.get("longName", sym)),
+                })
+                break
+        except Exception:
+            continue
+
+    # Also check holdings for local matches
+    try:
+        df = portfolio_svc.get_holdings()
+        if not df.empty:
+            matches = df[df["symbol"].str.contains(q, case=False, na=False)]
+            for _, row in matches.iterrows():
+                if not any(r["symbol"] == row["symbol"] for r in results):
+                    results.append({"symbol": row["symbol"], "name": row["symbol"]})
+    except Exception:
+        pass
+
+    return {"results": results[:10]}
