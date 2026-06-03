@@ -17,8 +17,23 @@ class SessionManager:
 
     def __init__(self, config: GrowwConfig):
         self._config = config
+        self._groww: GrowwAPI | None = None
 
     def login(self) -> GrowwAPI:
+        self._groww = self._authenticate()
+        return self._groww
+
+    def refresh(self) -> GrowwAPI:
+        """Re-authenticate and return a fresh session."""
+        logger.info("Refreshing Groww session...")
+        self._groww = self._authenticate()
+        return self._groww
+
+    @property
+    def client(self) -> GrowwAPI:
+        return self._groww
+
+    def _authenticate(self) -> GrowwAPI:
         # TOTP flow (fully automated, no daily approval)
         if self._config.totp_secret:
             totp = pyotp.TOTP(self._config.totp_secret).now()
