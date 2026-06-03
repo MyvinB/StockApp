@@ -365,6 +365,30 @@ def api_holdings():
     return {"holdings": df.to_dict(orient="records"), "summary": portfolio_svc.summary()}
 
 
+@app.get("/debug")
+def debug():
+    import os
+    import requests as req
+    info = {}
+    # Check our outbound IP
+    try:
+        info["server_ip"] = req.get("https://api.ipify.org", timeout=5).text
+    except Exception as e:
+        info["server_ip"] = str(e)
+    # Check if token is set
+    key = os.environ.get("GROWW_API_KEY", "")
+    info["token_length"] = len(key)
+    info["token_prefix"] = key[:20] + "..." if key else "EMPTY"
+    # Try Groww API directly
+    try:
+        result = groww.get_holdings_for_user()
+        info["groww_status"] = "OK"
+        info["holdings_count"] = len(result.get("holdings", []))
+    except Exception as e:
+        info["groww_status"] = f"ERROR: {e}"
+    return info
+
+
 @app.get("/api/signals")
 def api_signals():
     signals = scanner.scan()
