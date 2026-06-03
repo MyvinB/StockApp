@@ -1,0 +1,13 @@
+growwapi
+pyotp
+python-dotenv
+pandas
+ta
+yfinance
+fastapi
+uvicorn
+redis
+nltk
+twilio
+requests
+numpy
