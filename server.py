@@ -83,8 +83,10 @@ tr:hover{background:#1f1f1f}
 .badge-rsi{background:#1e3a5f;color:#60a5fa}
 .empty{text-align:center;padding:40px;color:#666}
 .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
-.info{display:inline-block;width:16px;height:16px;border-radius:50%;background:#333;color:#888;font-size:10px;text-align:center;line-height:16px;cursor:help;margin-left:4px;position:relative}
-.info:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#262626;color:#ccc;padding:8px 12px;border-radius:6px;font-size:0.75rem;white-space:normal;width:220px;z-index:10;border:1px solid #333;line-height:1.4}
+.info{display:inline-block;width:16px;height:16px;border-radius:50%;background:#333;color:#888;font-size:10px;text-align:center;line-height:16px;cursor:pointer;margin-left:4px;position:relative}
+.info .tooltip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#262626;color:#ccc;padding:8px 12px;border-radius:6px;font-size:0.75rem;white-space:normal;width:220px;z-index:10;border:1px solid #333;line-height:1.4}
+.info.active .tooltip{display:block}
+@media(hover:hover){.info:hover .tooltip{display:block}}
 </style>
 </head>
 <body>
@@ -118,7 +120,7 @@ input.addEventListener('keydown',function(e){
     if(q)window.location.href='/stock/'+q;
   }
 });
-document.addEventListener('click',function(e){if(!e.target.closest('.search-box'))results.style.display='none';});
+document.addEventListener('click',function(e){if(!e.target.closest('.search-box'))results.style.display='none';if(!e.target.closest('.info'))document.querySelectorAll('.info.active').forEach(el=>el.classList.remove('active'));});
 })();
 </script>"""
 
@@ -232,7 +234,7 @@ def stock_detail(symbol: str):
     from groww_dashboard.services.buy_signals import supertrend
 
     def tip(label, explanation):
-        return f'{label} <span class="info" data-tip="{explanation}">i</span>'
+        return f'{label} <span class="info" onclick="this.classList.toggle(\'active\')">i<span class="tooltip">{explanation}</span></span>'
 
     body = f'<a href="/" class="tab" style="margin-bottom:16px;display:inline-block">← Back</a>'
     body += f'<h1 style="margin-bottom:16px">{symbol}</h1>'
