@@ -16,13 +16,7 @@ class SessionManager:
         self._config = config
 
     def login(self) -> GrowwAPI:
-        """Authenticate with Groww."""
-        if self._config.api_key.startswith("eyJ"):
-            groww = GrowwAPI(self._config.api_key)
-        else:
-            access_token = GrowwAPI.get_access_token(
-                api_key=self._config.api_key, secret=self._config.api_secret
-            )
-            groww = GrowwAPI(access_token)
+        """Authenticate with Groww using access token directly."""
+        groww = GrowwAPI(self._config.api_key)
         logger.info("Groww session authenticated successfully.")
         return groww
