@@ -408,16 +408,13 @@ def debug():
     import os
     import requests as req
     info = {}
-    # Check our outbound IP
     try:
         info["server_ip"] = req.get("https://api.ipify.org", timeout=5).text
     except Exception as e:
         info["server_ip"] = str(e)
-    # Check if token is set
     key = os.environ.get("GROWW_API_KEY", "")
     info["token_length"] = len(key)
     info["token_prefix"] = key[:20] + "..." if key else "EMPTY"
-    # Try Groww API directly
     try:
         result = groww.get_holdings_for_user()
         info["groww_status"] = "OK"

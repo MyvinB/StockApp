@@ -19,15 +19,22 @@ class PortfolioService:
 
     def get_holdings(self) -> pd.DataFrame:
         """Fetch holdings, enrich with LTP, compute P&L."""
-        try:
-            response = self._groww.get_holdings_for_user()
-        except Exception as e:
-            if self._session_manager and "forbidden" in str(e).lower():
-                logger.info("Token expired (forbidden), refreshing session...")
-                self._groww = self._session_manager.refresh()
+        import time
+
+        response = None
+        for attempt in range(3):
+            try:
                 response = self._groww.get_holdings_for_user()
-            else:
-                raise
+                break
+            except Exception as e:
+                logger.warning("Holdings attempt %d: type=%s, msg='%s'", attempt + 1, type(e).__name__, e)
+                err_str = str(e).lower()
+                if ("forbidden" in err_str or "authoris" in err_str) and attempt < 2:
+                    time.sleep(2 * (attempt + 1))
+                else:
+                    raise
+        if response is None:
+            return pd.DataFrame()
         logger.debug("Groww raw response: %s", str(response)[:500])
 
         holdings = self._extract_holdings(response)
@@ -65,11 +72,15 @@ class PortfolioService:
 
         # Fetch LTP for all symbols
         symbols = tuple(f"NSE_{s}" for s in df["symbol"])
-        ltp_data = self._groww.get_ltp(
-            segment=self._groww.SEGMENT_CASH,
-            exchange_trading_symbols=symbols,
-        )
-        df["ltp"] = df["symbol"].map(lambda s: ltp_data.get(f"NSE_{s}", 0))
+        try:
+            ltp_data = self._groww.get_ltp(
+                segment=self._groww.SEGMENT_CASH,
+                exchange_trading_symbols=symbols,
+            )
+        except Exception as e:
+            logger.warning("Groww LTP unavailable (%s), falling back to yfinance...", e)
+            ltp_data = self._fallback_ltp(df["symbol"].tolist())
+        df["ltp"] = df["symbol"].map(lambda s: ltp_data.get(f"NSE_{s}", ltp_data.get(s, 0)))
 
         # Warn about symbols with no LTP (possibly delisted or symbol changed)
         zero_ltp = df[df["ltp"] == 0]["symbol"].tolist()
@@ -83,6 +94,25 @@ class PortfolioService:
         # Mark symbols with no LTP as NaN P&L instead of -100%
         df.loc[df["ltp"] == 0, ["pnl", "pnl_pct"]] = 0
         return df
+
+    @staticmethod
+    def _fallback_ltp(symbols: list) -> dict:
+        """Fetch last closing prices from yfinance as LTP fallback."""
+        import yfinance as yf
+        tickers = " ".join(f"{s}.NS" for s in symbols)
+        try:
+            data = yf.download(tickers, period="1d", progress=False, auto_adjust=True)
+            if data.empty:
+                return {}
+            if isinstance(data.columns, pd.MultiIndex):
+                close = data["Close"].iloc[-1]
+                return {f"NSE_{s}": float(close.get(f"{s}.NS", 0) or 0) for s in symbols}
+            else:
+                price = float(data["Close"].iloc[-1]) if len(symbols) == 1 else 0
+                return {f"NSE_{symbols[0]}": price} if len(symbols) == 1 else {}
+        except Exception as e:
+            logger.error("yfinance fallback failed: %s", e)
+            return {}
 
     @staticmethod
     def _extract_holdings(response) -> list:

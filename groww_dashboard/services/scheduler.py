@@ -28,6 +28,7 @@ class AlertScheduler:
         self._running = False
 
     def _loop(self):
+        time.sleep(30)  # Wait for token to stabilize after startup
         while self._running:
             try:
                 self._engine.check_and_alert()
