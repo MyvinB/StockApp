@@ -19,7 +19,15 @@ class PortfolioService:
 
     def get_holdings(self) -> pd.DataFrame:
         """Fetch holdings, enrich with LTP, compute P&L."""
-        response = self._groww.get_holdings_for_user()
+        try:
+            response = self._groww.get_holdings_for_user()
+        except Exception as e:
+            if self._session_manager and "forbidden" in str(e).lower():
+                logger.info("Token expired (forbidden), refreshing session...")
+                self._groww = self._session_manager.refresh()
+                response = self._groww.get_holdings_for_user()
+            else:
+                raise
         logger.debug("Groww raw response: %s", str(response)[:500])
 
         holdings = self._extract_holdings(response)

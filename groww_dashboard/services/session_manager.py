@@ -37,9 +37,11 @@ class SessionManager:
         # TOTP flow (fully automated, no daily approval)
         if self._config.totp_secret:
             totp = pyotp.TOTP(self._config.totp_secret).now()
+            logger.info("TOTP generated: %s (time: %s)", totp, int(time.time()))
             access_token = GrowwAPI.get_access_token(
                 api_key=self._config.api_key, totp=totp
             )
+            logger.info("Access token received: %s...", str(access_token)[:20])
             groww = GrowwAPI(access_token)
             logger.info("Groww session authenticated (TOTP).")
             return groww
